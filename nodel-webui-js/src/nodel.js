@@ -386,9 +386,13 @@ var keyToLower = function(schemaOrValue) {
   // determine the type
   var isSchema = false;
   var isRemote = false;
-  if (cloned['properties']) {
+  if (cloned['properties']) { // schema
     isSchema = true;
     if (cloned['properties']['actions'] || cloned['properties']['events']) {
+      isRemote = true;
+    }
+  } else { // value
+    if (cloned['actions'] || cloned['events']) {
       isRemote = true;
     }
   }
