@@ -366,6 +366,60 @@ var checkRedirect = function(url) {
   });
 };
 
+var keyToLower = function(schemaOrValue) {
+  if (!schemaOrValue) {
+    return schemaOrValue;
+  }
+  var KtL = function(data) {
+    if (!data) {
+      return data;
+    }
+    var res = {};
+    for (var key in data) {
+      if (data.hasOwnProperty(key)) {
+        res[key.toLowerCase()] = data[key];
+      }
+    }
+    return res;
+  }
+  var cloned = _.cloneDeep(schemaOrValue);
+  // determine the type
+  var isSchema = false;
+  var isRemote = false;
+  if (cloned['properties']) {
+    isSchema = true;
+    if (cloned['properties']['actions'] || cloned['properties']['events']) {
+      isRemote = true;
+    }
+  }
+  // schema
+  if (isSchema) {
+    if (!isRemote) {
+      cloned['properties'] = KtL(cloned['properties'])
+    } else {
+      if (cloned['properties']['actions']) {
+        cloned['properties']['actions']['properties'] = KtL(cloned['properties']['actions']['properties']);
+      }
+      if (cloned['properties']['events']) {
+        cloned['properties']['events']['properties'] = KtL(cloned['properties']['events']['properties']);
+      }
+    }
+    return cloned;
+  }
+  // value
+  if (!isRemote) {
+    cloned = KtL(cloned);
+  } else {
+    if (cloned['actions']) {
+      cloned['actions'] = KtL(cloned['actions']);
+    }
+    if (cloned['events']) {
+      cloned['events'] = KtL(cloned['events']);
+    }
+  }
+  return cloned;
+}
+
 var node = host = nodename = nodedesc = ''; //= opts = '';
 var converter = new Markdown.Converter();
 var unicodematch = new XRegExp("[^\\p{L}\\p{N}]", "gi");
@@ -777,6 +831,11 @@ var checkReachable = function(host){
 
 var makeTemplate = function(ele, schema, tmpls){
   var d = $.Deferred();
+  var lowered = false;
+  if (schema && (schema['title'] === 'Remote' || schema['title'] === 'Parameters')) {
+    schema = keyToLower(schema);
+    lowered = true;
+  }
   // patch schema for UI related elements
   var extschema = $.extend({}, {"btntitle": $(ele).data('btntitle')}, {'schema':schema});
   if(!_.isUndefined($(ele).data('btnicon')) && $(ele).data('btnicon') !== '') extschema = $.extend({}, {"btnicon": $(ele).data('btnicon')}, extschema);
@@ -797,12 +856,12 @@ var makeTemplate = function(ele, schema, tmpls){
   var tmpl = $.templates(generatedTemplate);
   if(!(_.isUndefined($(ele).data('source'))) && ($(ele).data('source').charAt(0) != '/')){
     $.getJSON('http://'+host+'/REST/nodes/'+encodeURIComponent(node)+'/'+$(ele).data('source'), function(data) {
-      tmpl.link(ele, data);
+      tmpl.link(ele, lowered ? keyToLower(data) : data);
       d.resolve();
     });
   } else if(!(_.isUndefined($(ele).data('source'))) && ($(ele).data('source').charAt(0) == '/')){
     $.getJSON('http://'+host+'/REST'+$(ele).data('source'), function(data) {
-      tmpl.link(ele, data);
+      tmpl.link(ele, lowered ? keyToLower(data) : data);
       d.resolve();
     }); 
   } else {
